@@ -36,6 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
 		new CssClassCompletionProvider({
 			attrs: DEFAULT_JSX_ATTRS,
 			fns: DEFAULT_FN_NAMES,
+			quote: true,
 		}),
 		...triggerChars,
 	);
@@ -45,6 +46,8 @@ export function activate(context: vscode.ExtensionContext) {
 		['html'],
 		new CssClassCompletionProvider({ attrs: DEFAULT_JSX_ATTRS }),
 		...triggerChars,
+		// HTML can be triggered by `=` (no quotes required)
+		'=',
 	);
 	context.subscriptions.push(htmlProvider);
 
@@ -62,6 +65,8 @@ export function activate(context: vscode.ExtensionContext) {
 class CssClassCompletionProvider implements vscode.CompletionItemProvider {
 	constructor(
 		protected opts: {
+			/** Require we're in an unquoted string */
+			quote?: boolean;
 			/** Attribute names that trigger completion */
 			attrs?: string[];
 			/** Function names that trigger completion */
@@ -109,7 +114,10 @@ class CssClassCompletionProvider implements vscode.CompletionItemProvider {
 		// We assume class name is in a single or double quote. We don't autocomplete
 		// in backtick quotes because interpolation + autocomplete is weird.
 		const beforeOpenQuote = UP_TO_UNMATCHED_QUOTE_REGEX.exec(lineContent);
-		if (!beforeOpenQuote || beforeOpenQuote[0]?.length === lineContent.length) {
+		if (
+			!beforeOpenQuote ||
+			(this.opts.quote && beforeOpenQuote[0]?.length === lineContent.length)
+		) {
 			return false;
 		} else {
 			lineContent = beforeOpenQuote[0];
