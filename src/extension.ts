@@ -7,16 +7,10 @@ import * as fs from 'fs';
 const UP_TO_UNMATCHED_QUOTE_REGEX = /^(?:[^'"]*(?:"[^"]*"|'[^']*'))*[^'"]*(?=['"']|$)/;
 
 // Regex to see if string ends with attribute
-const ENDS_WITH_ATTR = /([\w-]+)=$/;
+const ENDS_WITH_ATTR = /([\w:-]+)=$/;
 
 // Regex to get all parens (plus associated function call)
 const PARENS_REGEX = /([\w$]*\(|\))/g;
-
-// Default JSX attributes that trigger autocomplete
-const DEFAULT_JSX_ATTRS = ['className', 'class', 'classList'];
-
-// Default function names that trigger autocomplete
-const DEFAULT_FN_NAMES = ['cn', 'cx', 'clsx', 'classNames'];
 
 // Default number of lines to look back for matching JSX attributes or function calls
 const MAX_LOOKBACK_LINES = 10;
@@ -28,38 +22,92 @@ const CLASS_REGEX = /\.([a-zA-Z][a-zA-Z0-9_-]*)/g;
 const cssClassesByFile = new Map<string, Set<string>>();
 
 export function activate(context: vscode.ExtensionContext) {
+	// Track current providers for disposal
+	let currentProviders: vscode.Disposable[] = [];
+
+	/**
+	 * Setup completion providers with current configuration
+	 */
+	function setupProviders(context: vscode.ExtensionContext, triggerChars: string[]) {
+		// Dispose of existing providers
+		currentProviders.forEach((provider) => provider.dispose());
+		currentProviders = [];
+
+		// Get configuration
+		const config = vscode.workspace.getConfiguration('cssClassAutocomplete');
+		const jsxAttributes = config.get<string[]>('jsxAttributes') ?? [];
+		const functionNames = config.get<string[]>('functionNames') ?? [];
+
+		// Register JSX/TSX provider
+		const jsxProvider = vscode.languages.registerCompletionItemProvider(
+			['javascriptreact', 'typescriptreact'],
+			new CssClassCompletionProvider({
+				attrs: jsxAttributes,
+				fns: functionNames,
+				quote: true,
+			}),
+			...triggerChars,
+		);
+		currentProviders.push(jsxProvider);
+		context.subscriptions.push(jsxProvider);
+
+		// Register HTML provider
+		const htmlProvider = vscode.languages.registerCompletionItemProvider(
+			['html'],
+			new CssClassCompletionProvider({ attrs: jsxAttributes }),
+			...triggerChars,
+			// HTML can be triggered by `=` (no quotes required)
+			'=',
+		);
+		currentProviders.push(htmlProvider);
+		context.subscriptions.push(htmlProvider);
+	}
+
+	/**
+	 * Set up file watchers for CSS files
+	 */
+	// Track current watchers for disposal
+	let currentWatchers: vscode.FileSystemWatcher[] = [];
+
+	function setupCssFileWatchers(context: vscode.ExtensionContext) {
+		// Dispose of existing watchers
+		currentWatchers.forEach((watcher) => watcher.dispose());
+		currentWatchers = [];
+
+		const config = vscode.workspace.getConfiguration('cssClassAutocomplete');
+		const patterns = config.get<string[]>('styleFilePatterns') ?? [];
+
+		// Create a watcher for each pattern
+		patterns.forEach((pattern) => {
+			const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+			watcher.onDidChange((uri) => updateCssClassesForFile(uri.fsPath));
+			watcher.onDidCreate((uri) => updateCssClassesForFile(uri.fsPath));
+			watcher.onDidDelete((uri) => removeCssClassesForFile(uri.fsPath));
+			currentWatchers.push(watcher);
+			context.subscriptions.push(watcher);
+		});
+
+		// Do initial scan
+		scanWorkspaceForCssClasses();
+	}
+
 	const triggerChars = ['"', "'", ' '];
 
-	// Register the completion provider with specific trigger characters
-	const jsxProvider = vscode.languages.registerCompletionItemProvider(
-		['javascriptreact', 'typescriptreact'],
-		new CssClassCompletionProvider({
-			attrs: DEFAULT_JSX_ATTRS,
-			fns: DEFAULT_FN_NAMES,
-			quote: true,
+	// Setup initial providers
+	setupProviders(context, triggerChars);
+	setupCssFileWatchers(context);
+
+	// Watch for configuration changes
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration('cssClassAutocomplete')) {
+				setupProviders(context, triggerChars);
+				if (e.affectsConfiguration('cssClassAutocomplete.styleFilePatterns')) {
+					setupCssFileWatchers(context);
+				}
+			}
 		}),
-		...triggerChars,
 	);
-	context.subscriptions.push(jsxProvider);
-
-	const htmlProvider = vscode.languages.registerCompletionItemProvider(
-		['html'],
-		new CssClassCompletionProvider({ attrs: DEFAULT_JSX_ATTRS }),
-		...triggerChars,
-		// HTML can be triggered by `=` (no quotes required)
-		'=',
-	);
-	context.subscriptions.push(htmlProvider);
-
-	scanWorkspaceForCssClasses();
-
-	// Watch for CSS file changes
-	const watcher = vscode.workspace.createFileSystemWatcher('**/*.css');
-	watcher.onDidChange((uri) => updateCssClassesForFile(uri.fsPath));
-	watcher.onDidCreate((uri) => updateCssClassesForFile(uri.fsPath));
-	watcher.onDidDelete((uri) => removeCssClassesForFile(uri.fsPath));
-
-	context.subscriptions.push(watcher);
 }
 
 class CssClassCompletionProvider implements vscode.CompletionItemProvider {
@@ -190,9 +238,20 @@ class CssClassCompletionProvider implements vscode.CompletionItemProvider {
 async function scanWorkspaceForCssClasses() {
 	cssClassesByFile.clear();
 
-	const cssFiles = await vscode.workspace.findFiles('**/*.css');
+	const config = vscode.workspace.getConfiguration('cssClassAutocomplete');
+	const patterns = config.get<string[]>('styleFilePatterns') ?? [
+		'**/*.css',
+		'**/*.scss',
+		'**/*.less',
+	];
 
-	for (const file of cssFiles) {
+	// Find all matching style files
+	const styleFiles = await Promise.all(
+		patterns.map((pattern) => vscode.workspace.findFiles(pattern)),
+	);
+
+	// Flatten array of arrays and process each file
+	for (const file of styleFiles.flat()) {
 		await updateCssClassesForFile(file.fsPath);
 	}
 }

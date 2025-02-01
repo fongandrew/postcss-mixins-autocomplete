@@ -15,7 +15,36 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": []
+    "commands": [],
+    "configuration": {
+      "title": "CSS Class Autocomplete",
+      "properties": {
+        "cssClassAutocomplete.jsxAttributes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["className", "class", "class:list", "classList", "ngClass"],
+          "description": "JSX attributes that trigger CSS class name autocomplete"
+        },
+        "cssClassAutocomplete.functionNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["cn", "cx", "clsx", "classNames"],
+          "description": "Function names that trigger CSS class name autocomplete"
+        },
+        "cssClassAutocomplete.styleFilePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["**/*.css", "**/*.scss", "**/*.less"],
+          "description": "File patterns to watch for CSS class names"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
