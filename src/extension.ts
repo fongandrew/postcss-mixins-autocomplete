@@ -6,9 +6,6 @@ import * as fs from 'fs';
 // - OR the entire string if all quotes are matched
 const UP_TO_UNMATCHED_QUOTE_REGEX = /^(?:[^'"]*(?:"[^"]*"|'[^']*'))*[^'"]*(?=['"']|$)/;
 
-// Regex for the current word being typed
-const CURRENT_WORD_REGEX = /[\w-]*$/;
-
 // Regex to see if string ends with attribute
 const ENDS_WITH_ATTR = /([\w-]+)=$/;
 
@@ -22,16 +19,15 @@ const DEFAULT_JSX_ATTRS = ['className', 'class', 'classList'];
 const DEFAULT_FN_NAMES = ['cn', 'cx', 'clsx', 'classNames'];
 
 // Default number of lines to look back for matching JSX attributes or function calls
-const DEFAULT_LOOKBACK_LINES = 10;
+const MAX_LOOKBACK_LINES = 10;
 
 // Regex for CSS classnames
 const CLASS_REGEX = /\.([a-zA-Z][a-zA-Z0-9_-]*)/g;
 
-// Store found class names
-const cssClasses = new Set<string>();
+// Store found class names by file name
+const cssClassesByFile = new Map<string, Set<string>>();
 
 export function activate(context: vscode.ExtensionContext) {
-	console.log('activate!');
 	const triggerChars = ['"', "'", ' '];
 
 	// Register the completion provider with specific trigger characters
@@ -56,9 +52,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Watch for CSS file changes
 	const watcher = vscode.workspace.createFileSystemWatcher('**/*.css');
-	watcher.onDidChange(() => scanWorkspaceForCssClasses());
-	watcher.onDidCreate(() => scanWorkspaceForCssClasses());
-	watcher.onDidDelete(() => scanWorkspaceForCssClasses());
+	watcher.onDidChange((uri) => updateCssClassesForFile(uri.fsPath));
+	watcher.onDidCreate((uri) => updateCssClassesForFile(uri.fsPath));
+	watcher.onDidDelete((uri) => removeCssClassesForFile(uri.fsPath));
 
 	context.subscriptions.push(watcher);
 }
@@ -81,18 +77,27 @@ class CssClassCompletionProvider implements vscode.CompletionItemProvider {
 			return;
 		}
 
-		const currentWord = this.getCurrentWord(document, position);
+		// Reverse keys in class list so most recently edited CSS results get priority
+		const files = Array.from(cssClassesByFile.keys()).reverse();
 
-		// Create completion items for each matching class
-		return Array.from(cssClasses)
-			.filter((className) => !currentWord || className.startsWith(currentWord))
-			.map((className) => {
-				const item = new vscode.CompletionItem(className, vscode.CompletionItemKind.Value);
-				item.detail = 'CSS class';
-				// If we're in a space-separated list of classes, don't add quotes
-				item.insertText = className;
-				return item;
-			});
+		// Populate result list until we reach the maximum number of completion items
+		const cssClasses = new Set<string>();
+		for (const file of files) {
+			const classes = cssClassesByFile.get(file);
+			if (!classes) continue;
+			for (const className of classes) {
+				cssClasses.add(className);
+			}
+		}
+
+		// Convert to completion item form
+		return Array.from(cssClasses).map((className) => {
+			const item = new vscode.CompletionItem(className, vscode.CompletionItemKind.Value);
+			item.detail = 'CSS class';
+			// If we're in a space-separated list of classes, don't add quotes
+			item.insertText = className;
+			return item;
+		});
 	}
 
 	/**
@@ -125,7 +130,7 @@ class CssClassCompletionProvider implements vscode.CompletionItemProvider {
 			return false;
 		}
 
-		// Loop and do this for the preceding lines up to DEFAULT_LOOKBACK_LINES
+		// Loop and do this for the preceding lines up to MAX_LOOKBACK_LINES
 		let i = 0;
 		// See negativeStack below
 		let priorStack: string[] = [];
@@ -169,34 +174,36 @@ class CssClassCompletionProvider implements vscode.CompletionItemProvider {
 			}
 
 			priorStack = negativeParensStack;
-		} while (++i < DEFAULT_LOOKBACK_LINES);
+		} while (++i < MAX_LOOKBACK_LINES);
 		return false;
-	}
-
-	/**
-	 * Get the current word being typed
-	 */
-	private getCurrentWord(document: vscode.TextDocument, position: vscode.Position): string {
-		const linePrefix = document.lineAt(position).text.substring(0, position.character);
-		const match = linePrefix.match(CURRENT_WORD_REGEX);
-		return match ? match[0] : '';
 	}
 }
 
 async function scanWorkspaceForCssClasses() {
-	cssClasses.clear();
+	cssClassesByFile.clear();
 
 	const cssFiles = await vscode.workspace.findFiles('**/*.css');
 
 	for (const file of cssFiles) {
-		try {
-			const content = await fs.promises.readFile(file.fsPath, 'utf-8');
-			const classNames = extractClassNames(content);
-			classNames.forEach((className) => cssClasses.add(className));
-		} catch (error) {
-			console.error(`Error reading file ${file.fsPath}:`, error);
-		}
+		await updateCssClassesForFile(file.fsPath);
 	}
+}
+
+async function updateCssClassesForFile(filePath: string) {
+	try {
+		const content = await fs.promises.readFile(filePath, 'utf-8');
+		const classNames = extractClassNames(content);
+		const classSet = new Set(classNames);
+		// Delete first to update ordering in map
+		cssClassesByFile.delete(filePath);
+		cssClassesByFile.set(filePath, classSet);
+	} catch (error) {
+		console.error(`Error reading file ${filePath}:`, error);
+	}
+}
+
+function removeCssClassesForFile(filePath: string) {
+	cssClassesByFile.delete(filePath);
 }
 
 function extractClassNames(content: string): string[] {
@@ -205,5 +212,5 @@ function extractClassNames(content: string): string[] {
 }
 
 export function deactivate() {
-	cssClasses.clear();
+	cssClassesByFile.clear();
 }
