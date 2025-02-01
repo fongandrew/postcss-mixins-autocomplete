@@ -1,0 +1,30 @@
+import eslint from '@eslint/js';
+import * as tsParser from '@typescript-eslint/parser';
+import eslintConfigPrettier from 'eslint-config-prettier';
+import prettierPlugin from 'eslint-plugin-prettier';
+import tseslint from 'typescript-eslint';
+
+export default tseslint.config(
+	{
+        files: ["**/*.ts"],
+		ignores: ['dist/**/*', 'node_modules/**/*', '.*/**/*'],
+        linterOptions: {
+			reportUnusedDisableDirectives: true,
+		},
+		plugins: {
+			prettier: prettierPlugin,
+		}
+	},
+
+	eslint.configs.recommended,
+    tseslint.configs.recommended,
+	tseslint.configs.stylistic,
+    eslintConfigPrettier,
+
+	{
+		rules: {
+			// Prettier rules
+			'prettier/prettier': 'error',
+		}
+	}
+);
