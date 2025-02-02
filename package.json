@@ -19,13 +19,13 @@
     "configuration": {
       "title": "CSS Class Autocomplete",
       "properties": {
-        "cssClassAutocomplete.jsxAttributes": {
+        "cssClassAutocomplete.attributes": {
           "type": "array",
           "items": {
             "type": "string"
           },
           "default": ["className", "class", "class:list", "classList", "ngClass"],
-          "description": "JSX attributes that trigger CSS class name autocomplete"
+          "description": "HTML or JSX attributes that trigger CSS class name autocomplete"
         },
         "cssClassAutocomplete.functionNames": {
           "type": "array",

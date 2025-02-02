@@ -99,14 +99,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// Get configuration
 		const config = vscode.workspace.getConfiguration('cssClassAutocomplete');
-		const jsxAttributes = config.get<string[]>('jsxAttributes') ?? [];
+		const attributes = config.get<string[]>('attributes') ?? [];
 		const functionNames = config.get<string[]>('functionNames') ?? [];
 
 		// Register JSX/TSX provider
 		const jsxProvider = vscode.languages.registerCompletionItemProvider(
 			['javascriptreact', 'typescriptreact'],
 			new CssClassCompletionProvider(cssClassExtractor, {
-				attrs: jsxAttributes,
+				attrs: attributes,
 				fns: functionNames,
 				quote: true,
 			}),
@@ -118,7 +118,7 @@ export function activate(context: vscode.ExtensionContext) {
 		// Register HTML provider
 		const htmlProvider = vscode.languages.registerCompletionItemProvider(
 			['html'],
-			new CssClassCompletionProvider(cssClassExtractor, { attrs: jsxAttributes }),
+			new CssClassCompletionProvider(cssClassExtractor, { attrs: attributes }),
 			...triggerChars,
 			// HTML can be triggered by `=` (no quotes required)
 			'=',
