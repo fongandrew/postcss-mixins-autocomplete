@@ -1,71 +1,45 @@
-# css-class-autocomplete README
+# CSS Class Autocomplete for HTML/JSX/TSX
 
-This is the README for your extension "css-class-autocomplete". After writing up a brief description, we recommend including the following sections.
+**Current WIP. Not yet released.**
 
-## Features
+This is a Visual Studio Code extension that provides autocompletion for CSS class names in HTML, JSX, and TSX files. It automatically scans your project's CSS files and suggests class names as you type.
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+## How It Works
 
-For example if there is an image subfolder under your extension project workspace:
+It's pretty basic:
 
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- CSS files in your project are scanned for classes via regex (basically anything starting with `.`). Although this extension can look into SCSS
+files, it isn't capable of handling things like interpolated class names.
+- Autocomplete works in HTML, JSX, and TSX files. It doesn't rely on an
+AST or language server or anything fancy, just a bunch of regexes that
+look to see if you're in an open quote (`'` or `"` only, interpolated
+backtick quotes don't work) and if you're either assinging to an
+element attribute like `class="` or a specified function like `clsx('`.
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+This extension can br configured via the following settings:
 
-For example:
+* `cssClassAutocomplete.attributes`: Array of HTML/JSX attributes that trigger CSS class name autocomplete
+  - Default: `["className", "class", "class:list", "classList", "ngClass"]`
+* `cssClassAutocomplete.functionNames`: Array of function names that trigger CSS class name autocomplete
+  - Default: `["cn", "cx", "clsx", "classNames"]`
+* `cssClassAutocomplete.styleFilePatterns`: Array of file patterns to watch for CSS class names
+  - Default: `["**/*.{css,less,scss}"]`
+  - This extension doesn't directly support exclusion lists at this time. If
+  you need this, consider adding to your `files.watcherExclude` or
+  `files.exclude` settings in VSCode itself.
 
-This extension contributes the following settings:
+## Usage
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+It's a pretty basic extension.
+
+1. The extension will automatically scan your style files for class names via regex (basically anything starting with `.`). Although this extension can look into SCSS files, it isn't capable of handling things like interpolated class names.
+2. In HTML files, type a class attribute: `class="`. In JSX/TSX files, use className or other configured attributes: `className="`. Inside the quotes (`'` or `"` only -- backtick interpolation isn't supported), the extension will suggest available class names from your style files.
+3. You can also use it with utility functions like `clsx` or `classNames`.
+
+It doesn't rely on an AST or language server or anything fancy, just a bunch of regexes. It's likely there are a bunch of edge cases from this, but it mostly works.
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+This extension does not place nicely with `html.autoCreateQuotes`. If it's an issue, you can just set this to false or retype the quotation marks to trigger the extension.
