@@ -224,7 +224,6 @@ export class CssClassCompletionProvider implements vscode.CompletionItemProvider
 		// We assume class name is in a single or double quote. We don't autocomplete
 		// in backtick quotes because interpolation + autocomplete is weird.
 		const beforeOpenQuote = UP_TO_UNMATCHED_QUOTE_REGEX.exec(lineContent);
-		console.log(beforeOpenQuote);
 		if (
 			!beforeOpenQuote ||
 			(this.opts.quote && beforeOpenQuote[0]?.length === lineContent.length)
