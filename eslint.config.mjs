@@ -23,8 +23,18 @@ export default tseslint.config(
 
 	{
 		rules: {
-			// Prettier rules
+			// Prettier rules need to be explicitly turned on
 			'prettier/prettier': 'error',
+
+			// Overrides
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{
+					argsIgnorePattern: '^_',
+					caughtErrorsIgnorePattern: '^_',
+					varsIgnorePattern: '^_',
+				},
+			]
 		}
 	}
 );
