@@ -40,7 +40,7 @@
           "items": {
             "type": "string"
           },
-          "default": ["**/*.css", "**/*.scss", "**/*.less"],
+          "default": ["**/*.{css,less,scss}"],
           "description": "File patterns to watch for CSS class names"
         }
       }
