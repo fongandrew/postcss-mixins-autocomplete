@@ -2,6 +2,7 @@ import eslint from '@eslint/js';
 import * as tsParser from '@typescript-eslint/parser';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import prettierPlugin from 'eslint-plugin-prettier';
+import mochaPlugin from 'eslint-plugin-mocha';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -13,6 +14,7 @@ export default tseslint.config(
 		},
 		plugins: {
 			prettier: prettierPlugin,
+			mocha: mochaPlugin,
 		}
 	},
 
@@ -38,7 +40,9 @@ export default tseslint.config(
 					caughtErrorsIgnorePattern: '^_',
 					varsIgnorePattern: '^_',
 				},
-			]
+			],
+			// Ban exclusive tests like it.only
+			'mocha/no-exclusive-tests': 'error'
 		}
 	}
 );
