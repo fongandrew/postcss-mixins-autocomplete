@@ -28,7 +28,8 @@ export default tseslint.config(
 				// So this doesn't blow up on Windows CI
 				'endOfLine': 'auto',
 			}],
-
+			// Ban stray console logs
+			'no-console': ['error', { allow: ['warn', 'error'] }],
 			// Overrides
 			'@typescript-eslint/no-unused-vars': [
 				'error',
