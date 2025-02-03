@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { CssClassExtractor, FileSystem, CssClassCompletionProvider } from '../extension';
+import { CssClassExtractor, FileSystem, CssClassCompletionProvider } from './extension';
 
 class MockFileSystem implements FileSystem {
 	private files = new Map<string, string>();
