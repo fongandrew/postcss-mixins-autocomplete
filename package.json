@@ -64,8 +64,9 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "NODE_ENV=production npm run compile",
-    "compile": "npm run lint && npm run typecheck && node esbuild.config.js",
+    "vscode:prepublish": "NODE_ENV=production npm run bundle",
+    "bundle": "npm run lint && npm run typecheck && node esbuild.config.js",
+    "package": "vsce package",
     "watch": "node esbuild.config.js --watch",
     "typecheck": "tsc -p ./",
     "format": "prettier --write src/**/*.ts",

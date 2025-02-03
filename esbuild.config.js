@@ -29,6 +29,7 @@ else if (process.argv.includes('--watch')) {
 			ctx.watch();
 		});
 }
+
 // Regular build
 else {
 	esbuild.buildSync(baseConfig);
