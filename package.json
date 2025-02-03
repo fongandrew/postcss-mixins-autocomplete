@@ -60,11 +60,11 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "NODE_ENV=production npm run compile",
+    "compile": "npm run lint && npm run typecheck && node esbuild.config.js",
+    "watch": "node esbuild.config.js --watch",
+    "typecheck": "tsc -p ./",
     "format": "prettier --write src/**/*.ts",
-    "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test"
   },
@@ -77,6 +77,7 @@
     "@typescript-eslint/parser": "^8.17.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
+    "esbuild": "^0.24.2",
     "eslint": "^9.16.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-mocha": "^10.5.0",
