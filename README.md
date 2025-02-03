@@ -1,8 +1,13 @@
 # CSS Class Autocomplete for HTML/JSX/TSX
 
-**Current WIP. Not yet released.**
-
 This is a Visual Studio Code extension that provides autocompletion for CSS class names in HTML, JSX, and TSX files. It automatically scans your project's CSS files and suggests class names as you type.
+
+## Installation
+
+The extension is currently WIP and not released on VS Code marketplace. You can install manually though:
+
+- Download VSIX file from https://github.com/fongandrew/css-class-autocomplete/releases
+- Select `Install from VSIX` from the VS Code command palette. 
 
 ## How It Works
 
