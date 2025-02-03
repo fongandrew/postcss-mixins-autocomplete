@@ -2,6 +2,10 @@
   "name": "css-class-autocomplete",
   "displayName": "CSS class autocomplete for HTML/JSX/TSX",
   "description": "Autcompletes class names from CSS classes i nthe same project in HTML / JSX / TSX files",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fongandrew/css-class-autocomplete.git"
+  },
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.96.0"
@@ -77,6 +81,7 @@
     "@typescript-eslint/parser": "^8.17.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^3.2.2",
     "esbuild": "^0.24.2",
     "eslint": "^9.16.0",
     "eslint-config-prettier": "^10.0.1",
