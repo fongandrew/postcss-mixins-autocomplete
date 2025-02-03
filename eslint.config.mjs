@@ -24,7 +24,10 @@ export default tseslint.config(
 	{
 		rules: {
 			// Prettier rules need to be explicitly turned on
-			'prettier/prettier': 'error',
+			'prettier/prettier': ['error', {
+				// So this doesn't blow up on Windows CI
+				'endOfLine': 'auto',
+			}],
 
 			// Overrides
 			'@typescript-eslint/no-unused-vars': [
