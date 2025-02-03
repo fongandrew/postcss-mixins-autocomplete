@@ -71,6 +71,7 @@
     "typecheck": "tsc -p ./",
     "format": "prettier --write src/**/*.ts",
     "lint": "eslint src",
+    "pretest": "node esbuild.config.js --test",
     "test": "vscode-test"
   },
   "devDependencies": {
@@ -88,6 +89,7 @@
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-mocha": "^10.5.0",
     "eslint-plugin-prettier": "^5.2.3",
+    "glob": "^11.0.1",
     "prettier": "^3.4.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.22.0"
