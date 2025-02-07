@@ -27,7 +27,7 @@ export class MixinExtractor {
 
 	extractMixinNames(content: string): string[] {
 		const matches = Array.from(content.matchAll(MIXIN_DEFINITION_REGEX));
-		return matches.map(match => match[1]);
+		return matches.map((match) => match[1]);
 	}
 
 	async updateMixinsForFile(filePath: string): Promise<void> {
@@ -110,11 +110,11 @@ export function activate(context: vscode.ExtensionContext) {
 		// Create a watcher for each pattern
 		patterns.forEach((pattern) => {
 			const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-			
+
 			watcher.onDidChange((uri) => mixinExtractor.updateMixinsForFile(uri.fsPath));
 			watcher.onDidCreate((uri) => mixinExtractor.updateMixinsForFile(uri.fsPath));
 			watcher.onDidDelete((uri) => mixinExtractor.removeMixinsForFile(uri.fsPath));
-			
+
 			currentWatchers.push(watcher);
 			context.subscriptions.push(watcher);
 		});
@@ -124,7 +124,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// Find all matching style files across all patterns
 		const styleFiles = await Promise.all(
-			patterns.map((pattern) => vscode.workspace.findFiles(pattern))
+			patterns.map((pattern) => vscode.workspace.findFiles(pattern)),
 		);
 
 		// Process each file
@@ -157,8 +157,8 @@ export class MixinCompletionProvider implements vscode.CompletionItemProvider {
 		position: vscode.Position,
 	): Promise<vscode.CompletionItem[] | undefined> {
 		const linePrefix = document.lineAt(position).text.substring(0, position.character);
-		
-		// Only provide completion after @mixin 
+
+		// Only provide completion after @mixin
 		if (!MIXIN_USAGE_CHECK_REGEX.test(linePrefix)) {
 			return undefined;
 		}

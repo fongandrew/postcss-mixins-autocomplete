@@ -43,14 +43,12 @@ export default tseslint.config(
 			],
 			// Ban exclusive tests like it.only
 			'mocha/no-exclusive-tests': 'error'
-		},
-		overrides: [
-			{
-				files: ['*.test.*'],
-				rules: {
-					'@typescript-eslint/no-explicit-any': 'off',
-				},
-			},
-		],
+		}
+	},
+	{
+		files: ['**/*.test.*'],
+		rules: {
+			'@typescript-eslint/no-explicit-any': 'off'
+		}
 	}
 );

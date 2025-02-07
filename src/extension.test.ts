@@ -153,7 +153,7 @@ describe('MixinCompletionProvider', () => {
 		await extractor.updateMixinsForFile(file);
 
 		const document = {
-			lineAt: (line: number) => ({
+			lineAt: (_line: number) => ({
 				text: '@mixin ',
 				range: { start: { character: 0 }, end: { character: 7 } },
 			}),
