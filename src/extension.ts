@@ -3,7 +3,7 @@ import * as fs from 'fs';
 
 // Regex for mixin definitions and usage
 const MIXIN_DEFINITION_REGEX = /@define-mixin\s+([a-zA-Z][a-zA-Z0-9_-]*)/g;
-const MIXIN_USAGE_CHECK_REGEX = /@mixin\s*$/;
+const MIXIN_USAGE_CHECK_REGEX = /@mixin\s+([a-zA-Z0-9_-]*)$/;
 
 export interface FileSystem {
 	readFile(
@@ -89,7 +89,13 @@ export function activate(context: vscode.ExtensionContext) {
 		const cssProvider = vscode.languages.registerCompletionItemProvider(
 			['css', 'postcss'],
 			new MixinCompletionProvider(mixinExtractor),
-			' ', // Trigger on ' ' after @mixin
+			// Trigger on ' ' after @mixin
+			' ',
+			// Check again after typing a separator character (e.g. if we're tacking
+			// something onto an existing string.Ideally, we'd want to trigger after every
+			// keypress but that's potentially annoying or expensive.
+			'-',
+			'_',
 		);
 		currentProviders.push(cssProvider);
 		context.subscriptions.push(cssProvider);
@@ -158,16 +164,24 @@ export class MixinCompletionProvider implements vscode.CompletionItemProvider {
 	): Promise<vscode.CompletionItem[] | undefined> {
 		const linePrefix = document.lineAt(position).text.substring(0, position.character);
 
-		// Only provide completion after @mixin
-		if (!MIXIN_USAGE_CHECK_REGEX.test(linePrefix)) {
+		// Check for @mixin and get typed text
+		const match = linePrefix.match(MIXIN_USAGE_CHECK_REGEX);
+		if (!match) {
 			return undefined;
 		}
 
+		const typedText = match[1] || '';
+
+		// Filter mixins that start with what's been typed
+		const filteredMixins = this.mixinExtractor
+			.items()
+			.filter((mixinName) => mixinName.toLowerCase().startsWith(typedText.toLowerCase()));
+
 		// Convert extractor mixins to completion item form
-		return Array.from(this.mixinExtractor.items()).map((mixinName) => {
+		return filteredMixins.map((mixinName) => {
 			const item = new vscode.CompletionItem(mixinName, vscode.CompletionItemKind.Function);
 			item.detail = 'PostCSS Mixin';
-			item.insertText = mixinName;
+			item.insertText = mixinName.slice(typedText.length);
 			return item;
 		});
 	}

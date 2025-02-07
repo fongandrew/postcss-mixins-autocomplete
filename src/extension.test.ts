@@ -149,7 +149,14 @@ describe('MixinCompletionProvider', () => {
 
 	it('provides completion items for available mixins', async () => {
 		const file = '/test/style.css';
-		fileSystem.setFile(file, '@define-mixin button { padding: 10px; }');
+		fileSystem.setFile(
+			file,
+			`
+			@define-mixin button { padding: 10px; }
+			@define-mixin button-primary { color: blue; }
+			@define-mixin card { margin: 10px; }
+		`,
+		);
 		await extractor.updateMixinsForFile(file);
 
 		const document = {
@@ -166,8 +173,10 @@ describe('MixinCompletionProvider', () => {
 			position as any,
 		);
 
-		assert.strictEqual(completionItems?.length, 1);
+		assert.strictEqual(completionItems?.length, 3);
 		assert.strictEqual(completionItems?.[0].label, 'button');
+		assert.strictEqual(completionItems?.[1].label, 'button-primary');
+		assert.strictEqual(completionItems?.[2].label, 'card');
 		assert.strictEqual(completionItems?.[0].detail, 'PostCSS Mixin');
 	});
 
@@ -191,5 +200,85 @@ describe('MixinCompletionProvider', () => {
 		);
 
 		assert.strictEqual(completionItems, undefined);
+	});
+
+	it('filters completion items based on typed text', async () => {
+		const file = '/test/style.css';
+		fileSystem.setFile(
+			file,
+			`
+			@define-mixin button { padding: 10px; }
+			@define-mixin button-primary { color: blue; }
+			@define-mixin card { margin: 10px; }
+		`,
+		);
+		await extractor.updateMixinsForFile(file);
+
+		// Test case-insensitive filtering with "but"
+		const document1 = {
+			lineAt: (_line: number) => ({
+				text: '@mixin but',
+				range: { start: { character: 0 }, end: { character: 10 } },
+			}),
+			uri: Uri.file(path.resolve(file)),
+		};
+
+		const position1 = { line: 0, character: 10 };
+		const completionItems1 = await provider.provideCompletionItems(
+			document1 as any,
+			position1 as any,
+		);
+
+		assert.strictEqual(completionItems1?.length, 2);
+		assert.strictEqual(completionItems1?.[0].insertText, 'ton');
+		assert.strictEqual(completionItems1?.[1].insertText, 'ton-primary');
+
+		// Test with "card"
+		const document2 = {
+			lineAt: (_line: number) => ({
+				text: '@mixin card',
+				range: { start: { character: 0 }, end: { character: 11 } },
+			}),
+			uri: Uri.file(path.resolve(file)),
+		};
+
+		const position2 = { line: 0, character: 11 };
+		const completionItems2 = await provider.provideCompletionItems(
+			document2 as any,
+			position2 as any,
+		);
+
+		assert.strictEqual(completionItems2?.length, 1);
+		assert.strictEqual(completionItems2?.[0].label, 'card');
+	});
+
+	it('handles underscores in the typed text', async () => {
+		const file = '/test/style.css';
+		fileSystem.setFile(
+			file,
+			`
+			@define-mixin button-primary { color: blue; }
+			@define-mixin button_secondary { color: gray; }
+		`,
+		);
+		await extractor.updateMixinsForFile(file);
+
+		// Test with underscore
+		const document = {
+			lineAt: (_line: number) => ({
+				text: '@mixin button_',
+				range: { start: { character: 0 }, end: { character: 14 } },
+			}),
+			uri: Uri.file(path.resolve(file)),
+		};
+
+		const position = { line: 0, character: 14 };
+		const completionItems2 = await provider.provideCompletionItems(
+			document as any,
+			position as any,
+		);
+
+		assert.strictEqual(completionItems2?.length, 1);
+		assert.strictEqual(completionItems2?.[0].insertText, 'secondary');
 	});
 });
