@@ -1,6 +1,8 @@
 import * as assert from 'assert';
-import * as vscode from 'vscode';
-import { CssClassExtractor, FileSystem, CssClassCompletionProvider } from './extension';
+import * as path from 'path';
+import { Uri } from 'vscode';
+import { beforeEach, describe, it } from 'mocha';
+import { MixinExtractor, MixinCompletionProvider, FileSystem } from './extension';
 
 class MockFileSystem implements FileSystem {
 	private files = new Map<string, string>();
@@ -9,145 +11,185 @@ class MockFileSystem implements FileSystem {
 		this.files.set(path, content);
 	}
 
-	async readFile(
-		path: string,
-		_encoding: BufferEncoding | null | undefined,
-	): Promise<Buffer | string> {
+	async readFile(path: string): Promise<Buffer> {
 		const content = this.files.get(path);
 		if (content === undefined) {
 			throw new Error(`File not found: ${path}`);
 		}
-		return content;
+		return Buffer.from(content);
 	}
 }
 
-suite('CSS Class Extractor Tests', () => {
-	let mockFs: MockFileSystem;
-	let extractor: CssClassExtractor;
+describe('MixinExtractor', () => {
+	let fileSystem: MockFileSystem;
+	let extractor: MixinExtractor;
 
-	setup(() => {
-		mockFs = new MockFileSystem();
-		extractor = new CssClassExtractor(mockFs);
+	beforeEach(() => {
+		fileSystem = new MockFileSystem();
+		extractor = new MixinExtractor(fileSystem);
 	});
 
-	test('extracts class names from CSS content', () => {
-		const classNames = extractor.extractClassNames(`
-			.header { color: red; }
-			p { margin-bottom: 20px; }
-			main.content { padding: 20px; }
-			.footer {
-				.link {
-					text-decoration: none;
+	describe('extractMixinNames', () => {
+		it('extracts mixin names from content', () => {
+			const content = `
+				@define-mixin button {
+					padding: 10px;
 				}
-			}
+				@define-mixin card {
+					border: 1px solid black;
+				}
+			`;
+			const mixins = extractor.extractMixinNames(content);
+			assert.deepStrictEqual(mixins, ['button', 'card']);
+		});
 
-		`);
-		assert.deepStrictEqual(classNames, ['header', 'content', 'footer', 'link']);
+		it('handles mixin names with hyphens and numbers', () => {
+			const content = `
+				@define-mixin button-primary {
+					color: blue;
+				}
+				@define-mixin card2 {
+					margin: 10px;
+				}
+			`;
+			const mixins = extractor.extractMixinNames(content);
+			assert.deepStrictEqual(mixins, ['button-primary', 'card2']);
+		});
+
+		it('ignores invalid mixin names', () => {
+			const content = `
+				@define-mixin 2invalid {
+					color: red;
+				}
+				@define-mixin valid-name {
+					color: blue;
+				}
+			`;
+			const mixins = extractor.extractMixinNames(content);
+			assert.deepStrictEqual(mixins, ['valid-name']);
+		});
 	});
 
-	test('handles empty CSS content', () => {
-		const classNames = extractor.extractClassNames('');
-		assert.deepStrictEqual(classNames, []);
+	describe('updateMixinsForFile', () => {
+		it('updates mixins for a file', async () => {
+			const filePath = '/test/style.css';
+			const content = `
+				@define-mixin button {
+					padding: 10px;
+				}
+			`;
+			fileSystem.setFile(filePath, content);
+			await extractor.updateMixinsForFile(filePath);
+			assert.deepStrictEqual(extractor.items(), ['button']);
+		});
+
+		it('handles multiple files', async () => {
+			const file1 = '/test/style1.css';
+			const file2 = '/test/style2.css';
+
+			fileSystem.setFile(file1, '@define-mixin button { padding: 10px; }');
+			fileSystem.setFile(file2, '@define-mixin card { margin: 10px; }');
+
+			await extractor.updateMixinsForFile(file1);
+			await extractor.updateMixinsForFile(file2);
+
+			assert.deepStrictEqual(extractor.items().sort(), ['button', 'card']);
+		});
+
+		it('updates existing file mixins', async () => {
+			const filePath = '/test/style.css';
+
+			fileSystem.setFile(filePath, '@define-mixin button { padding: 10px; }');
+			await extractor.updateMixinsForFile(filePath);
+			assert.deepStrictEqual(extractor.items(), ['button']);
+
+			fileSystem.setFile(filePath, '@define-mixin card { margin: 10px; }');
+			await extractor.updateMixinsForFile(filePath);
+			assert.deepStrictEqual(extractor.items(), ['card']);
+		});
 	});
 
-	test('handles CSS content with no classes', () => {
-		const classNames = extractor.extractClassNames('body { margin: 0; }');
-		assert.deepStrictEqual(classNames, []);
+	describe('removeMixinsForFile', () => {
+		it('removes mixins for a specific file', async () => {
+			const file1 = '/test/style1.css';
+			const file2 = '/test/style2.css';
+
+			fileSystem.setFile(file1, '@define-mixin button { padding: 10px; }');
+			fileSystem.setFile(file2, '@define-mixin card { margin: 10px; }');
+
+			await extractor.updateMixinsForFile(file1);
+			await extractor.updateMixinsForFile(file2);
+			await extractor.removeMixinsForFile(file1);
+
+			assert.deepStrictEqual(extractor.items(), ['card']);
+		});
 	});
 
-	test('provides items from multiple files, with last edited sorted first', async () => {
-		mockFs.setFile('/test.css', '.header { color: red; }');
-		mockFs.setFile('/other.css', '.footer { color: blue; }');
-		await extractor.updateCssClassesForFile('/test.css');
-		await extractor.updateCssClassesForFile('/other.css');
-		const classes = extractor.items();
-		assert.deepStrictEqual(classes, ['footer', 'header']);
-	});
-
-	test('handles file updates', async () => {
-		mockFs.setFile('/test.css', '.header { color: red; } .main { color: green; }');
-		mockFs.setFile('/other.css', '.main { padding: 10px; } .footer { padding: 10px; }');
-		await extractor.updateCssClassesForFile('/test.css');
-		await extractor.updateCssClassesForFile('/other.css');
-
-		mockFs.setFile('/test.css', '.header { color: red; } .sidebar { color: blue; }');
-		await extractor.updateCssClassesForFile('/test.css');
-
-		const classes = extractor.items();
-		assert.deepStrictEqual(classes, ['header', 'sidebar', 'main', 'footer']);
-	});
-
-	test('handles file removal', async () => {
-		mockFs.setFile('/test.css', '.header { color: red; }');
-		mockFs.setFile('/other.css', '.footer { color: blue; }');
-		await extractor.updateCssClassesForFile('/test.css');
-		await extractor.updateCssClassesForFile('/other.css');
-		await extractor.removeCssClassesForFile('/other.css');
-
-		const classes = extractor.items();
-		assert.deepStrictEqual(classes, ['header']);
+	describe('reset', () => {
+		it('clears all mixins', async () => {
+			const filePath = '/test/style.css';
+			fileSystem.setFile(filePath, '@define-mixin button { padding: 10px; }');
+			await extractor.updateMixinsForFile(filePath);
+			extractor.reset();
+			assert.deepStrictEqual(extractor.items(), []);
+		});
 	});
 });
 
-suite('CSS Class Completion Provider Tests', () => {
-	const getCompletionItemsForContent = async (content: string) => {
-		const provider = new CssClassCompletionProvider(
-			{ items: () => ['main'] } as unknown as CssClassExtractor,
-			{
-				attrs: ['className', 'class'],
-				fns: ['clsx', 'classNames'],
-				quote: true,
-			},
-		);
-		const lines = content.split('\n');
+describe('MixinCompletionProvider', () => {
+	let fileSystem: MockFileSystem;
+	let extractor: MixinExtractor;
+	let provider: MixinCompletionProvider;
+
+	beforeEach(() => {
+		fileSystem = new MockFileSystem();
+		extractor = new MixinExtractor(fileSystem);
+		provider = new MixinCompletionProvider(extractor);
+	});
+
+	it('provides completion items for available mixins', async () => {
+		const file = '/test/style.css';
+		fileSystem.setFile(file, '@define-mixin button { padding: 10px; }');
+		await extractor.updateMixinsForFile(file);
+
 		const document = {
-			lineAt: (lineOrPost: number | vscode.Position) => ({
-				text: lines[typeof lineOrPost === 'number' ? lineOrPost : lineOrPost.line],
+			lineAt: (line: number) => ({
+				text: '@mixin ',
+				range: { start: { character: 0 }, end: { character: 7 } },
 			}),
-			getText: () => content,
-		} as unknown as vscode.TextDocument;
-		const position = new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
-		return provider.provideCompletionItems(document, position);
-	};
+			uri: Uri.file(path.resolve(file)),
+		};
 
-	test('provides completion items for className attribute', async () => {
-		const items = await getCompletionItemsForContent('<div className="');
-		assert.ok(items?.length);
+		const position = { line: 0, character: 7 };
+		const completionItems = await provider.provideCompletionItems(
+			document as any,
+			position as any,
+		);
+
+		assert.strictEqual(completionItems?.length, 1);
+		assert.strictEqual(completionItems?.[0].label, 'button');
+		assert.strictEqual(completionItems?.[0].detail, 'PostCSS Mixin');
 	});
 
-	test('does not provide completions outside of specified attribute', async () => {
-		const items = await getCompletionItemsForContent('<div id="');
-		assert.strictEqual(items, undefined);
-	});
+	it('returns undefined when not after @mixin', async () => {
+		const file = '/test/style.css';
+		fileSystem.setFile(file, '@define-mixin button { padding: 10px; }');
+		await extractor.updateMixinsForFile(file);
 
-	test('provides completions for function calls', async () => {
-		const items = await getCompletionItemsForContent('clsx("');
-		assert.ok(items?.length);
-	});
+		const document = {
+			lineAt: (_line: number) => ({
+				text: '.some-class { ',
+				range: { start: { character: 0 }, end: { character: 13 } },
+			}),
+			uri: Uri.file(path.resolve(file)),
+		};
 
-	test('provides completions for nested function calls', async () => {
-		const items = await getCompletionItemsForContent('foo(clsx("');
-		assert.ok(items?.length);
-	});
+		const position = { line: 0, character: 13 };
+		const completionItems = await provider.provideCompletionItems(
+			document as any,
+			position as any,
+		);
 
-	test('provides completions for function calls with prior args', async () => {
-		const items = await getCompletionItemsForContent('clsx("other", foo() && "');
-		assert.ok(items?.length);
-	});
-
-	test('provides completions for multi-line function calls', async () => {
-		const items = await getCompletionItemsForContent(`
-			clsx(
-				"other",
-				(() => {
-					return bar() && "header";
-				}),
-				foo() && "`);
-		assert.ok(items?.length);
-	});
-
-	test('does not provide completions outside of specifed function calls', async () => {
-		const items = await getCompletionItemsForContent('foo("');
-		assert.strictEqual(items, undefined);
+		assert.strictEqual(completionItems, undefined);
 	});
 });

@@ -7,9 +7,9 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
 	{
-        files: ["**/*.ts"],
+		files: ["**/*.ts"],
 		ignores: ['dist/**/*', 'node_modules/**/*', '.*/**/*'],
-        linterOptions: {
+		linterOptions: {
 			reportUnusedDisableDirectives: true,
 		},
 		plugins: {
@@ -19,9 +19,9 @@ export default tseslint.config(
 	},
 
 	eslint.configs.recommended,
-    tseslint.configs.recommended,
+	tseslint.configs.recommended,
 	tseslint.configs.stylistic,
-    eslintConfigPrettier,
+	eslintConfigPrettier,
 
 	{
 		rules: {
@@ -43,6 +43,14 @@ export default tseslint.config(
 			],
 			// Ban exclusive tests like it.only
 			'mocha/no-exclusive-tests': 'error'
-		}
+		},
+		overrides: [
+			{
+				files: ['*.test.*'],
+				rules: {
+					'@typescript-eslint/no-explicit-any': 'off',
+				},
+			},
+		],
 	}
 );

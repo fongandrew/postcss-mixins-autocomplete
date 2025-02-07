@@ -1,12 +1,12 @@
 {
-  "name": "css-class-autocomplete",
-  "displayName": "CSS class autocomplete for HTML/JSX/TSX",
-  "description": "Autcompletes class names from CSS classes i nthe same project in HTML / JSX / TSX files",
+  "name": "postcss-mixins-autocomplete",
+  "displayName": "PostCSS Mixins Autocomplete",
+  "description": "Autocompletes PostCSS mixin names defined in your project",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fongandrew/css-class-autocomplete.git"
+    "url": "https://github.com/fongandrew/postcss-mixins-autocomplete.git"
   },
-  "version": "0.2.0",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.96.0"
   },
@@ -14,51 +14,21 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:javascriptreact",
-    "onLanguage:typescriptreact"
+    "onLanguage:css",
+    "onLanguage:postcss"
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [],
     "configuration": {
-      "title": "CSS Class Autocomplete",
+      "title": "PostCSS Mixins Autocomplete",
       "properties": {
-        "cssClassAutocomplete.attributes": {
+        "postcssMixinsAutocomplete.cssFilePatterns": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "default": [
-            "className",
-            "class",
-            "class:list",
-            "classList",
-            "ngClass"
-          ],
-          "description": "HTML or JSX attributes that trigger CSS class name autocomplete"
-        },
-        "cssClassAutocomplete.functionNames": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "cn",
-            "cx",
-            "clsx",
-            "classNames"
-          ],
-          "description": "Function names that trigger CSS class name autocomplete"
-        },
-        "cssClassAutocomplete.styleFilePatterns": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "**/*.{css,less,scss}"
-          ],
-          "description": "File patterns to watch for CSS class names"
+          "default": ["**/*.{css,pcss,postcss}"],
+          "description": "File patterns to watch for PostCSS mixin definitions"
         }
       }
     }

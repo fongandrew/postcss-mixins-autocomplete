@@ -1,9 +1,9 @@
 # Change Log
 
-## 0.2.0
-
-- Support autocomplete in JS/TS files
-
 ## 0.1.0
 
-- Initial release
+Initial release:
+- Basic mixin autocomplete functionality
+- Support for CSS and PostCSS files
+- Real-time mixin detection and updates
+- Configurable file pattern watching

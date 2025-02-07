@@ -1,22 +1,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
-// Regex for unmatched single or double quotes. This matchds
-// - Everything up to an unmatched quote
-// - OR the entire string if all quotes are matched
-const UP_TO_UNMATCHED_QUOTE_REGEX = /^(?:[^'"]*(?:"[^"]*"|'[^']*'))*[^'"]*(?=['"']|$)/;
-
-// Regex to see if string ends with attribute
-const ENDS_WITH_ATTR_REGEX = /([\w:-]+)=$/;
-
-// Regex to get all parens (plus associated function call)
-const PARENS_REGEX = /([\w$]*\(|\))/g;
-
-// Default number of lines to look back for matching JSX attributes or function calls
-const MAX_LOOKBACK_LINES = 10;
-
-// Regex for CSS classnames
-const CLASS_REGEX = /\.([a-zA-Z][a-zA-Z0-9_-]*)/g;
+// Regex for mixin definitions and usage
+const MIXIN_DEFINITION_REGEX = /@define-mixin\s+([a-zA-Z][a-zA-Z0-9_-]*)/g;
+const MIXIN_USAGE_CHECK_REGEX = /@mixin\s*$/;
 
 export interface FileSystem {
 	readFile(
@@ -32,271 +19,157 @@ export class DefaultFileSystem implements FileSystem {
 	}
 }
 
-export class CssClassExtractor {
-	// Classes by filename
-	private cssClassesByFile = new Map<string, Set<string>>();
+export class MixinExtractor {
+	// Mixins by filename
+	private mixinsByFile = new Map<string, Set<string>>();
 
 	constructor(private fileSystem: FileSystem = new DefaultFileSystem()) {}
 
-	extractClassNames(content: string): string[] {
-		const matches = content.match(CLASS_REGEX) || [];
-		return matches.map((match) => match.substring(1));
+	extractMixinNames(content: string): string[] {
+		const matches = Array.from(content.matchAll(MIXIN_DEFINITION_REGEX));
+		return matches.map(match => match[1]);
 	}
 
-	async updateCssClassesForFile(filePath: string): Promise<void> {
+	async updateMixinsForFile(filePath: string): Promise<void> {
 		try {
 			const content = await this.fileSystem.readFile(filePath, 'utf-8');
-			const classNames = this.extractClassNames(String(content));
-			const classSet = new Set(classNames);
+			const mixinNames = this.extractMixinNames(String(content));
+			const mixinSet = new Set(mixinNames);
 			// Delete first to update ordering in map
-			this.cssClassesByFile.delete(filePath);
-			this.cssClassesByFile.set(filePath, classSet);
+			this.mixinsByFile.delete(filePath);
+			this.mixinsByFile.set(filePath, mixinSet);
 		} catch (error) {
 			console.error(`Error reading file ${filePath}:`, error);
 		}
 	}
 
-	async removeCssClassesForFile(filePath: string): Promise<void> {
-		this.cssClassesByFile.delete(filePath);
+	async removeMixinsForFile(filePath: string): Promise<void> {
+		this.mixinsByFile.delete(filePath);
 	}
 
 	items() {
-		// Reverse keys in class list so most recently edited CSS results get priority
-		const files = Array.from(this.cssClassesByFile.keys()).reverse();
+		// Reverse keys in mixin list so most recently edited results get priority
+		const files = Array.from(this.mixinsByFile.keys()).reverse();
 
 		// Populate result list
-		const cssClasses = new Set<string>();
+		const mixins = new Set<string>();
 		for (const file of files) {
-			const classes = this.cssClassesByFile.get(file);
-			if (!classes) continue;
-			for (const className of classes) {
-				cssClasses.add(className);
+			const mixinSet = this.mixinsByFile.get(file);
+			if (!mixinSet) continue;
+			for (const mixinName of mixinSet) {
+				mixins.add(mixinName);
 			}
 		}
 
-		return Array.from(cssClasses);
+		return Array.from(mixins);
 	}
 
 	reset() {
-		this.cssClassesByFile.clear();
+		this.mixinsByFile.clear();
 	}
 }
 
 export function activate(context: vscode.ExtensionContext) {
-	// Map of CSS classes by file
-	const cssClassExtractor = new CssClassExtractor();
+	// Map of mixins by file
+	const mixinExtractor = new MixinExtractor();
 
 	// Track current providers for disposal
 	let currentProviders: vscode.Disposable[] = [];
+	let currentWatchers: vscode.FileSystemWatcher[] = [];
 
 	/**
 	 * Setup completion providers with current configuration
 	 */
-	function setupProviders(context: vscode.ExtensionContext, triggerChars: string[]) {
+	function setupProviders(context: vscode.ExtensionContext) {
 		// Dispose of existing providers
 		currentProviders.forEach((provider) => provider.dispose());
 		currentProviders = [];
 
-		// Get configuration
-		const config = vscode.workspace.getConfiguration('cssClassAutocomplete');
-		const attributes = config.get<string[]>('attributes') ?? [];
-		const functionNames = config.get<string[]>('functionNames') ?? [];
-
-		// Register JSX/TSX provider
-		const jsxProvider = vscode.languages.registerCompletionItemProvider(
-			['javascriptreact', 'typescriptreact'],
-			new CssClassCompletionProvider(cssClassExtractor, {
-				attrs: attributes,
-				fns: functionNames,
-				quote: true,
-			}),
-			...triggerChars,
+		// Register CSS provider
+		const cssProvider = vscode.languages.registerCompletionItemProvider(
+			['css', 'postcss'],
+			new MixinCompletionProvider(mixinExtractor),
+			'@', // Trigger on @ symbol for @mixin
 		);
-		currentProviders.push(jsxProvider);
-		context.subscriptions.push(jsxProvider);
-
-		// Register HTML provider
-		const htmlProvider = vscode.languages.registerCompletionItemProvider(
-			['html'],
-			new CssClassCompletionProvider(cssClassExtractor, { attrs: attributes }),
-			...triggerChars,
-			// HTML can be triggered by `=` (no quotes required)
-			'=',
-		);
-		currentProviders.push(htmlProvider);
-		context.subscriptions.push(htmlProvider);
+		currentProviders.push(cssProvider);
+		context.subscriptions.push(cssProvider);
 	}
 
 	/**
-	 * Set up file watchers for CSS files
+	 * Set up file watchers for CSS files based on configuration
 	 */
-	// Track current watchers for disposal
-	let currentWatchers: vscode.FileSystemWatcher[] = [];
-
 	async function setupCssFileWatchers(context: vscode.ExtensionContext) {
 		// Dispose of existing watchers
 		currentWatchers.forEach((watcher) => watcher.dispose());
 		currentWatchers = [];
 
-		const config = vscode.workspace.getConfiguration('cssClassAutocomplete');
-		const patterns = config.get<string[]>('styleFilePatterns') ?? [];
+		// Get configuration
+		const config = vscode.workspace.getConfiguration('postcssMixinsAutocomplete');
+		const patterns = config.get<string[]>('cssFilePatterns') ?? ['**/*.{css,pcss,postcss}'];
 
 		// Create a watcher for each pattern
 		patterns.forEach((pattern) => {
 			const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-			watcher.onDidChange((uri) => cssClassExtractor.updateCssClassesForFile(uri.fsPath));
-			watcher.onDidCreate((uri) => cssClassExtractor.updateCssClassesForFile(uri.fsPath));
-			watcher.onDidDelete((uri) => cssClassExtractor.removeCssClassesForFile(uri.fsPath));
+			
+			watcher.onDidChange((uri) => mixinExtractor.updateMixinsForFile(uri.fsPath));
+			watcher.onDidCreate((uri) => mixinExtractor.updateMixinsForFile(uri.fsPath));
+			watcher.onDidDelete((uri) => mixinExtractor.removeMixinsForFile(uri.fsPath));
+			
 			currentWatchers.push(watcher);
 			context.subscriptions.push(watcher);
 		});
 
 		// Do initial scan
-		cssClassExtractor.reset();
+		mixinExtractor.reset();
 
-		// Find all matching style files
+		// Find all matching style files across all patterns
 		const styleFiles = await Promise.all(
-			patterns.map((pattern) => vscode.workspace.findFiles(pattern)),
+			patterns.map((pattern) => vscode.workspace.findFiles(pattern))
 		);
 
-		// Flatten array of arrays and process each file
-		for (const file of styleFiles.flat()) {
-			await cssClassExtractor.updateCssClassesForFile(file.fsPath);
+		// Process each file
+		for (const filesForPattern of styleFiles) {
+			for (const file of filesForPattern) {
+				await mixinExtractor.updateMixinsForFile(file.fsPath);
+			}
 		}
 	}
 
-	const triggerChars = ['"', "'", ' '];
-
-	// Setup initial providers
-	setupProviders(context, triggerChars);
+	// Setup initial providers and watchers
+	setupProviders(context);
 	setupCssFileWatchers(context);
 
 	// Watch for configuration changes
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
-			if (e.affectsConfiguration('cssClassAutocomplete')) {
-				setupProviders(context, triggerChars);
-				if (e.affectsConfiguration('cssClassAutocomplete.styleFilePatterns')) {
-					setupCssFileWatchers(context);
-				}
+			if (e.affectsConfiguration('postcssMixinsAutocomplete')) {
+				setupCssFileWatchers(context);
 			}
 		}),
 	);
 }
 
-export class CssClassCompletionProvider implements vscode.CompletionItemProvider {
-	constructor(
-		protected cssClassExtractor: CssClassExtractor,
-		protected opts: {
-			/** Require we're in an unquoted string */
-			quote?: boolean;
-			/** Attribute names that trigger completion */
-			attrs?: string[];
-			/** Function names that trigger completion */
-			fns?: string[];
-		} = {},
-	) {}
+export class MixinCompletionProvider implements vscode.CompletionItemProvider {
+	constructor(protected mixinExtractor: MixinExtractor) {}
 
 	async provideCompletionItems(
 		document: vscode.TextDocument,
 		position: vscode.Position,
 	): Promise<vscode.CompletionItem[] | undefined> {
-		if (!this.isInContext(document, position)) {
-			return;
+		const linePrefix = document.lineAt(position).text.substring(0, position.character);
+		
+		// Only provide completion after @mixin 
+		if (!MIXIN_USAGE_CHECK_REGEX.test(linePrefix)) {
+			return undefined;
 		}
 
-		// Convert extractor classes to completion item form
-		return Array.from(this.cssClassExtractor.items()).map((className) => {
-			const item = new vscode.CompletionItem(className, vscode.CompletionItemKind.Value);
-			item.detail = 'CSS class';
-			// If we're in a space-separated list of classes, don't add quotes
-			item.insertText = className;
+		// Convert extractor mixins to completion item form
+		return Array.from(this.mixinExtractor.items()).map((mixinName) => {
+			const item = new vscode.CompletionItem(mixinName, vscode.CompletionItemKind.Function);
+			item.detail = 'PostCSS Mixin';
+			item.insertText = mixinName;
 			return item;
 		});
-	}
-
-	/**
-	 * Check if the current position is inside a JSX attribute or matching function call
-	 */
-	private isInContext(document: vscode.TextDocument, position: vscode.Position): boolean {
-		let lineContent = document.lineAt(position).text.substring(0, position.character);
-
-		// We assume class name is in a single or double quote. We don't autocomplete
-		// in backtick quotes because interpolation + autocomplete is weird.
-		const beforeOpenQuote = UP_TO_UNMATCHED_QUOTE_REGEX.exec(lineContent);
-		if (
-			!beforeOpenQuote ||
-			(this.opts.quote && beforeOpenQuote[0]?.length === lineContent.length)
-		) {
-			return false;
-		} else {
-			lineContent = beforeOpenQuote[0];
-		}
-
-		// Check if this of the form `class="`
-		const attrs = this.opts.attrs;
-		if (attrs?.length) {
-			const attrMatch = ENDS_WITH_ATTR_REGEX.exec(lineContent);
-			if (attrMatch) {
-				return attrs.includes(attrMatch[1]);
-			}
-		}
-
-		// Only check fn parens if needed (JSX/TSX)
-		const fns = this.opts.fns;
-		if (!fns?.length) {
-			return false;
-		}
-
-		// Loop and do this for the preceding lines up to MAX_LOOKBACK_LINES
-		let i = 0;
-		// See negativeStack below
-		let priorStack: string[] = [];
-		do {
-			// Two stacks - Left parens add to the stack, right parens pop from the stack
-			// If we find a right parens and there's nothing in the stack, we add it to
-			// the negative stack (which becomes the prior stack on the next run)
-			const parensStack: string[] = [];
-			const negativeParensStack: string[] = [];
-			let match: RegExpExecArray | null;
-			while ((match = PARENS_REGEX.exec(lineContent))) {
-				const parens = match[0];
-				if (parens.endsWith('(')) {
-					parensStack.push(parens);
-				} else if (parens === ')') {
-					if (parensStack.length) {
-						parensStack.pop();
-					} else {
-						negativeParensStack.push(parens);
-					}
-				}
-			}
-
-			// These should all be closing parens
-			for (const parens of priorStack) {
-				if (parensStack.length) {
-					parensStack.pop();
-				} else {
-					negativeParensStack.push(parens);
-				}
-			}
-
-			if (parensStack.length) {
-				return fns.includes(parensStack[parensStack.length - 1].slice(0, -1));
-			}
-
-			priorStack = negativeParensStack;
-		} while (
-			(() => {
-				i++;
-				if (i >= MAX_LOOKBACK_LINES) return false;
-				const lineNum = position.line - i;
-				if (lineNum < 0) return false;
-				lineContent = document.lineAt(lineNum).text;
-				return true;
-			})()
-		);
-		return false;
 	}
 }
 
