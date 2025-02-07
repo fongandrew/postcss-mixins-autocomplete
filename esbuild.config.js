@@ -28,7 +28,14 @@ const OUT_DIR = 'out';
 
 const baseConfig = {
 	bundle: true,
-	external: ['vscode'],
+	external: [
+		'vscode',
+		'mocha',
+		'./reporters/*',
+		'./reporters/parallel-buffered',
+		'node:test',
+		'node:test/reporters'
+	],
 	format: 'cjs',
 	platform: 'node',
 	sourcemap: true,
@@ -57,7 +64,7 @@ async function main() {
 
 	// Build for production
 	if (process.argv.includes('--production')) {
-		config ={
+		config = {
 			...mainConfig,
 			minify: true,
 			sourcemap: false,
@@ -66,7 +73,7 @@ async function main() {
 
 	// Build for test
 	else if (process.argv.includes('--test')) {
-		config = testConfig
+		config = testConfig;
 	}
 
 	const ctx = await esbuild.context(config);
