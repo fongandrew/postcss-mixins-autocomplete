@@ -11,3 +11,7 @@ Initial release:
 ## 0.1.1
 
 - Fixed a bug where extension wasn't triggering properly (type a space)
+
+## 0.2.0
+
+- Trigger completion after typing a hyphen or underscore
