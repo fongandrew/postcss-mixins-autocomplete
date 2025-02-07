@@ -33,7 +33,7 @@ The extension is currently WIP and not released on VS Code marketplace. You can 
 
 ```css
 .my-button {
-    @mixin button
+    @mixin button;
 }
 ```
 
