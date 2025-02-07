@@ -10,6 +10,13 @@ A Visual Studio Code extension that provides autocomplete suggestions for PostCS
 - Updates in real-time as you add or modify mixins
 - Configurable file patterns for watching CSS files
 
+## Installation
+
+The extension is currently WIP and not released on VS Code marketplace. You can install manually though:
+
+- Download VSIX file from https://github.com/fongandrew/css-class-autocomplete/releases
+- Select `Install from VSIX` from the VS Code command palette. 
+
 ## Usage
 
 1. Define your mixins in your CSS/PostCSS files using `@define-mixin`:
