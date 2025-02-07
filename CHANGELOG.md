@@ -7,3 +7,7 @@ Initial release:
 - Support for CSS and PostCSS files
 - Real-time mixin detection and updates
 - Configurable file pattern watching
+
+## 0.1.1
+
+- Fixed a bug where extension wasn't triggering properly (type a space)
