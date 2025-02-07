@@ -89,7 +89,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const cssProvider = vscode.languages.registerCompletionItemProvider(
 			['css', 'postcss'],
 			new MixinCompletionProvider(mixinExtractor),
-			'@', // Trigger on @ symbol for @mixin
+			' ', // Trigger on ' ' after @mixin
 		);
 		currentProviders.push(cssProvider);
 		context.subscriptions.push(cssProvider);
