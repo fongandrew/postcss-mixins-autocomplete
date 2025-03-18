@@ -164,6 +164,7 @@ describe('MixinCompletionProvider', () => {
 				text: '@mixin ',
 				range: { start: { character: 0 }, end: { character: 7 } },
 			}),
+			getWordRangeAtPosition: () => null, // No word at cursor position
 			uri: Uri.file(path.resolve(file)),
 		};
 
@@ -202,7 +203,7 @@ describe('MixinCompletionProvider', () => {
 		assert.strictEqual(completionItems, undefined);
 	});
 
-	it('filters completion items based on typed text', async () => {
+	it('provides completion items with filterText for VSCode filtering', async () => {
 		const file = '/test/style.css';
 		fileSystem.setFile(
 			file,
@@ -214,45 +215,33 @@ describe('MixinCompletionProvider', () => {
 		);
 		await extractor.updateMixinsForFile(file);
 
-		// Test case-insensitive filtering with "but"
-		const document1 = {
+		const document = {
 			lineAt: (_line: number) => ({
 				text: '@mixin but',
 				range: { start: { character: 0 }, end: { character: 10 } },
 			}),
-			uri: Uri.file(path.resolve(file)),
-		};
-
-		const position1 = { line: 0, character: 10 };
-		const completionItems1 = await provider.provideCompletionItems(
-			document1 as any,
-			position1 as any,
-		);
-
-		assert.strictEqual(completionItems1?.length, 2);
-		assert.strictEqual(completionItems1?.[0].insertText, 'ton');
-		assert.strictEqual(completionItems1?.[1].insertText, 'ton-primary');
-
-		// Test with "card"
-		const document2 = {
-			lineAt: (_line: number) => ({
-				text: '@mixin card',
-				range: { start: { character: 0 }, end: { character: 11 } },
+			getWordRangeAtPosition: () => ({
+				start: { line: 0, character: 7 },
+				end: { line: 0, character: 10 },
 			}),
 			uri: Uri.file(path.resolve(file)),
 		};
 
-		const position2 = { line: 0, character: 11 };
-		const completionItems2 = await provider.provideCompletionItems(
-			document2 as any,
-			position2 as any,
+		const position = { line: 0, character: 10 };
+		const completionItems = await provider.provideCompletionItems(
+			document as any,
+			position as any,
 		);
 
-		assert.strictEqual(completionItems2?.length, 1);
-		assert.strictEqual(completionItems2?.[0].label, 'card');
+		// Should return all mixins with filterText for VSCode's native filtering
+		assert.strictEqual(completionItems?.length, 3);
+		assert.strictEqual(completionItems?.[0].filterText, 'button');
+		assert.strictEqual(completionItems?.[1].filterText, 'button-primary');
+		assert.strictEqual(completionItems?.[2].filterText, 'card');
+		assert.ok(completionItems?.[0].range, 'Completion items should have a range');
 	});
 
-	it('handles underscores in the typed text', async () => {
+	it('handles separator characters in completion', async () => {
 		const file = '/test/style.css';
 		fileSystem.setFile(
 			file,
@@ -269,16 +258,23 @@ describe('MixinCompletionProvider', () => {
 				text: '@mixin button_',
 				range: { start: { character: 0 }, end: { character: 14 } },
 			}),
+			getWordRangeAtPosition: () => ({
+				start: { line: 0, character: 7 },
+				end: { line: 0, character: 14 },
+			}),
 			uri: Uri.file(path.resolve(file)),
 		};
 
 		const position = { line: 0, character: 14 };
-		const completionItems2 = await provider.provideCompletionItems(
+		const completionItems = await provider.provideCompletionItems(
 			document as any,
 			position as any,
 		);
 
-		assert.strictEqual(completionItems2?.length, 1);
-		assert.strictEqual(completionItems2?.[0].insertText, 'secondary');
+		assert.strictEqual(completionItems?.length, 2);
+		assert.ok(completionItems?.[0].range, 'Completion items should have a range');
+		assert.ok(completionItems?.[1].range, 'Completion items should have a range');
+		assert.strictEqual(completionItems?.[0].filterText, 'button-primary');
+		assert.strictEqual(completionItems?.[1].filterText, 'button_secondary');
 	});
 });

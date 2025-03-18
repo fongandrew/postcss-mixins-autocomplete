@@ -170,18 +170,20 @@ export class MixinCompletionProvider implements vscode.CompletionItemProvider {
 			return undefined;
 		}
 
-		const typedText = match[1] || '';
-
-		// Filter mixins that start with what's been typed
-		const filteredMixins = this.mixinExtractor
-			.items()
-			.filter((mixinName) => mixinName.toLowerCase().startsWith(typedText.toLowerCase()));
-
 		// Convert extractor mixins to completion item form
-		return filteredMixins.map((mixinName) => {
+		return this.mixinExtractor.items().map((mixinName) => {
 			const item = new vscode.CompletionItem(mixinName, vscode.CompletionItemKind.Function);
 			item.detail = 'PostCSS Mixin';
-			item.insertText = mixinName.slice(typedText.length);
+
+			// Set filter text to enable VSCode's native filtering
+			item.filterText = mixinName;
+
+			// For word replacement - this will be used when triggered with - or _
+			const wordRange = document.getWordRangeAtPosition(position, /[\w_-]+/);
+			if (wordRange) {
+				item.range = wordRange;
+			}
+
 			return item;
 		});
 	}
