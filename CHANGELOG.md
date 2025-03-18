@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.2.1
+
+- Refactors hyphen completion handling, so it replaces the entire word rather than just inserts.
+
 ## 0.2.0
 
 - Trigger completion after typing a hyphen or underscore
