@@ -27,7 +27,9 @@
           "items": {
             "type": "string"
           },
-          "default": ["**/*.{css,pcss,postcss}"],
+          "default": [
+            "**/*.{css,pcss,postcss}"
+          ],
           "description": "File patterns to watch for PostCSS mixin definitions"
         }
       }
@@ -54,7 +56,7 @@
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
     "@vscode/vsce": "^3.2.2",
-    "esbuild": "^0.24.2",
+    "esbuild": "^0.25.1",
     "eslint": "^9.16.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-mocha": "^10.5.0",
