@@ -12,10 +12,12 @@ A Visual Studio Code extension that provides autocomplete suggestions for PostCS
 
 ## Installation
 
-The extension is currently WIP and not released on VS Code marketplace. You can install manually though:
+Install from https://marketplace.visualstudio.com/items?itemName=fongandrew.postcss-mixins-autocomplete
+
+Or install manually:
 
 - Download VSIX file from https://github.com/fongandrew/css-class-autocomplete/releases
-- Select `Install from VSIX` from the VS Code command palette. 
+- Select `Install from VSIX` from the VS Code command palette.
 
 ## Usage
 
