@@ -1,5 +1,9 @@
 # Change Log
 
+## 1.0.1
+
+- Initial Marketplace release
+
 ## 0.2.1
 
 - Refactors hyphen completion handling, so it replaces the entire word rather than just inserts.
